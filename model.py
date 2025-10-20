@@ -1,70 +1,93 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-# --- 修改 Start ---
-# 我们不仅导入模型本身，还导入对应的权重枚举
 from torchvision.models.video import r2plus1d_18, R2Plus1D_18_Weights
-# --- 修改 End ---
 
+def R2Dmodel(embedding_dim: int = 128, pretrained: bool = True, freeze_layers: list = None):
+    # 1. 加载模型
+    if pretrained:
+        print("Loading pretrained weights from Kinetics-400.")
+        weights = R2Plus1D_18_Weights.KINETICS400_V1
+    else:
+        weights = None
+        
+    model = r2plus1d_18(weights=weights)
 
-class R2Plus1DNet(nn.Module):
-    def __init__(self, num_classes=5, embedding_dim=128, pretrained=True):
-        """
-        初始化模型。
-        Args:
-            num_classes (int): 项目中的类别总数。虽然主要用 embedding，但某些损失函数可能需要。
-            embedding_dim (int): 最终输出的嵌入向量维度。
-            pretrained (bool): 是否加载 Kinetics-400 上的预训练权重。
-        """
-        super(R2Plus1DNet, self).__init__()
-        
-        # --- 修改 Start ---
-        # 根据 pretrained 参数决定使用哪种权重
-        if pretrained:
-            # 使用官方推荐的枚举对象指定预训练权重
-            weights = R2Plus1D_18_Weights.KINETICS400_V1
-        else:
-            weights = None
-        
-        # 加载模型时传入权重对象
-        self.backbone = r2plus1d_18(weights=weights)
-        # --- 修改 End ---
-        
-        # 2. 改造模型的分类头 (Embedding Head)
-        in_features = self.backbone.fc.in_features
-        self.backbone.fc = nn.Identity()
-        self.embedding_head = nn.Linear(in_features, embedding_dim)
-        
-    def forward(self, x):
-        """
-        定义模型的前向传播。
-        """
-        features = self.backbone(x)
-        embedding = self.embedding_head(features)
-        embedding = F.normalize(embedding, p=2, dim=1)
-        return embedding
+    # 2.1 冻结指定层
+    if freeze_layers is not None:
+        print(f"Freezing specific layers: {freeze_layers}")
+        for name, module in model.named_children():
+            if name in freeze_layers:
+                for param in module.parameters():
+                    param.requires_grad = False
+        # 兼容嵌套层（如layer1, layer2等包含多个block）
+        # 支持传递如layer1.0, layer2.1等
+        for layer_name in freeze_layers:
+            if '.' in layer_name:
+                names = layer_name.split('.')
+                sub_module = model
+                try:
+                    for n in names:
+                        # 支持数字索引
+                        if n.isdigit():
+                            sub_module = sub_module[int(n)]
+                        else:
+                            sub_module = getattr(sub_module, n)
+                    for param in sub_module.parameters():
+                        param.requires_grad = False
+                except Exception as e:
+                    print(f"Warning: Could not freeze {layer_name}: {e}")
+    
+    # 3. 替换最后一层（投影头/嵌入层）
+    # 获取原始分类头的输入特征维度
+    num_ftrs = model.fc.in_features
+    
+    # 创建一个新的线性层，将特征映射到你指定的 embedding_dim 维度
+    # 这个层现在是你的 "Projection Head"
+    model.fc = nn.Linear(num_ftrs, embedding_dim)
+    
+    if freeze_layers is not None and 'fc' in freeze_layers:
+        for param in model.fc.parameters():
+            param.requires_grad = True
 
+    
+    return model
 
-# --- 模型测试代码 (保持不变) ---
+# 主程序入口：用于测试脚本是否能正常工作
 if __name__ == '__main__':
-    # 模拟输入数据
-    dummy_video_batch = torch.randn(4, 3, 16, 224, 224) 
+    # --- 测试参数 ---
+    EMBEDDING_DIM = 128  # 目标输出维度
     
-    print("正在实例化模型...")
-    model = R2Plus1DNet(num_classes=5, embedding_dim=64, pretrained=True)
-    print("模型实例化成功！")
+    # --- 创建模型 ---
+    print("Creating a model for metric learning (embedding generation)...")
+    # 示例：冻结前两层（stem和layer1）
+    embedding_model = R2Dmodel(
+        embedding_dim=EMBEDDING_DIM, 
+        pretrained=True,
+        freeze_layers=['stem', 'layer1', 'layer2', 'layer3', 'layer4','fc']  # 你可以自定义要冻结的层
+    )
     
-    model.eval()
+    # --- 模拟输入并进行一次前向传播 ---
+    # 视频模型的标准输入形状: [Batch, Channels, Time, Height, Width]
+    batch_size = 4
+    num_frames = 16
+    channels = 3
+    height = 112
+    width = 112
     
-    print("\n正在进行一次前向传播测试...")
-    with torch.no_grad():
-        output_embedding = model(dummy_video_batch)
-    print("前向传播成功！")
+    # 创建一个假的视频张量
+    dummy_video_tensor = torch.randn(batch_size, channels, num_frames, height, width)
     
-    print(f"\n输入张量的形状: {dummy_video_batch.shape}")
-    print(f"输出嵌入向量的形状: {output_embedding.shape}")
-    print(f"预期输出形状是: (4, 64)")
+    print(f"\nTesting forward pass with a dummy tensor of shape: {dummy_video_tensor.shape}")
     
-    norms = torch.norm(output_embedding, p=2, dim=1)
-    print(f"\n输出向量的 L2 范数（长度）: \n{norms}")
-    print("如果归一化成功，上述值应该都非常接近 1.0")
+    # 将输入传递给模型
+    embeddings = embedding_model(dummy_video_tensor)
+    
+    # 检查输出形状是否正确
+    print(f"Output embeddings shape: {embeddings.shape}")
+    print(f"Expected output shape: [{batch_size}, {EMBEDDING_DIM}]")
+    
+    # 断言检查
+    assert embeddings.shape == (batch_size, EMBEDDING_DIM), "Output shape is incorrect!"
+    
+    print("\nModel script test passed successfully!")
+    print(embedding_model)
