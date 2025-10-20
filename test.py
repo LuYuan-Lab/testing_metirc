@@ -72,6 +72,14 @@ def visualize_tsne(embeddings, labels, class_names, filename="tsne_plot.png"):
     print(f"\n--- t-SNE Visualization ---")
     print("Running t-SNE... (This may take a minute)")
     
+    # 解决matplotlib中文乱码问题
+    try:
+        plt.rcParams['font.sans-serif'] = ['SimHei']  # 指定默认字体
+        plt.rcParams['axes.unicode_minus'] = False  # 解决负号'-'显示为方块的问题
+    except Exception as e:
+        print(f"Warning: Could not set Chinese font 'SimHei'. Plot labels may be garbled. Error: {e}")
+        print("Please ensure you have a Chinese font like 'SimHei' installed.")
+
     embeddings_np = embeddings.numpy()
     labels_np = labels.numpy()
     
