@@ -1,4 +1,4 @@
-#查看裁剪检测框
+# 查看裁剪检测框
 
 from tool.dataset import VideoDataset
 
@@ -12,7 +12,7 @@ dataset = VideoDataset(
     mode=mode,
     num_frames=10,  # 测试时可以只采样少量帧，加快速度
     random_offset=0,  # 测试时先不要随机偏移
-    resize_shape=(112, 112)
+    resize_shape=(112, 112),
 )
 
 print(f"Found {len(dataset)} videos in dataset.")

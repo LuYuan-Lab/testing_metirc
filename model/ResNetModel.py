@@ -1,12 +1,21 @@
+from typing import Callable, List, Sequence, Tuple, Type, Union
+
 import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.hub import load_state_dict_from_url
-from typing import Any, Callable, List, Optional, Sequence, Tuple, Type, Union
+
 
 # ------------------ Conv / Block 定义 ------------------
 class Conv2Plus1D(nn.Sequential):
-    def __init__(self, in_planes: int, out_planes: int, midplanes: int, stride: int = 1, padding: int = 1):
+    def __init__(
+        self,
+        in_planes: int,
+        out_planes: int,
+        midplanes: int,
+        stride: int = 1,
+        padding: int = 1,
+    ):
         super().__init__(
             nn.Conv3d(
                 in_planes,
@@ -19,7 +28,12 @@ class Conv2Plus1D(nn.Sequential):
             nn.BatchNorm3d(midplanes),
             nn.ReLU(inplace=True),
             nn.Conv3d(
-                midplanes, out_planes, kernel_size=(3, 1, 1), stride=(stride, 1, 1), padding=(padding, 0, 0), bias=False
+                midplanes,
+                out_planes,
+                kernel_size=(3, 1, 1),
+                stride=(stride, 1, 1),
+                padding=(padding, 0, 0),
+                bias=False,
             ),
         )
 
@@ -27,13 +41,21 @@ class Conv2Plus1D(nn.Sequential):
     def get_downsample_stride(stride: int) -> Tuple[int, int, int]:
         return stride, stride, stride
 
+
 class BasicBlock(nn.Module):
     expansion = 1
+
     def __init__(self, inplanes, planes, conv_builder, stride=1, downsample=None):
         super().__init__()
         midplanes = (inplanes * planes * 3 * 3 * 3) // (inplanes * 3 * 3 + 3 * planes)
-        self.conv1 = nn.Sequential(conv_builder(inplanes, planes, midplanes, stride), nn.BatchNorm3d(planes), nn.ReLU(inplace=True))
-        self.conv2 = nn.Sequential(conv_builder(planes, planes, midplanes), nn.BatchNorm3d(planes))
+        self.conv1 = nn.Sequential(
+            conv_builder(inplanes, planes, midplanes, stride),
+            nn.BatchNorm3d(planes),
+            nn.ReLU(inplace=True),
+        )
+        self.conv2 = nn.Sequential(
+            conv_builder(planes, planes, midplanes), nn.BatchNorm3d(planes)
+        )
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
@@ -48,21 +70,43 @@ class BasicBlock(nn.Module):
         out = self.relu(out)
         return out
 
+
 class R2Plus1dStem(nn.Sequential):
     def __init__(self) -> None:
         super().__init__(
-            nn.Conv3d(3, 45, kernel_size=(1,7,7), stride=(1,2,2), padding=(0,3,3), bias=False),
+            nn.Conv3d(
+                3,
+                45,
+                kernel_size=(1, 7, 7),
+                stride=(1, 2, 2),
+                padding=(0, 3, 3),
+                bias=False,
+            ),
             nn.BatchNorm3d(45),
             nn.ReLU(inplace=True),
-            nn.Conv3d(45, 64, kernel_size=(3,1,1), stride=(1,1,1), padding=(1,0,0), bias=False),
+            nn.Conv3d(
+                45,
+                64,
+                kernel_size=(3, 1, 1),
+                stride=(1, 1, 1),
+                padding=(1, 0, 0),
+                bias=False,
+            ),
             nn.BatchNorm3d(64),
             nn.ReLU(inplace=True),
         )
 
+
 # ------------------ VideoResNet 构造 ------------------
 class VideoResNet(nn.Module):
-    def __init__(self, block: Type[Union[BasicBlock]], conv_makers: Sequence[Type[Conv2Plus1D]],
-                 layers: List[int], stem: Callable[..., nn.Module], num_classes: int = 400):
+    def __init__(
+        self,
+        block: Type[Union[BasicBlock]],
+        conv_makers: Sequence[Type[Conv2Plus1D]],
+        layers: List[int],
+        stem: Callable[..., nn.Module],
+        num_classes: int = 400,
+    ):
         super().__init__()
         self.inplanes = 64
         self.stem = stem()
@@ -70,7 +114,7 @@ class VideoResNet(nn.Module):
         self.layer2 = self._make_layer(block, conv_makers[1], 128, layers[1], stride=2)
         self.layer3 = self._make_layer(block, conv_makers[2], 256, layers[2], stride=2)
         self.layer4 = self._make_layer(block, conv_makers[3], 512, layers[3], stride=2)
-        self.avgpool = nn.AdaptiveAvgPool3d((1,1,1))
+        self.avgpool = nn.AdaptiveAvgPool3d((1, 1, 1))
         self.fc = nn.Linear(512 * block.expansion, num_classes)
 
         for m in self.modules():
@@ -90,7 +134,13 @@ class VideoResNet(nn.Module):
         if stride != 1 or self.inplanes != planes * block.expansion:
             ds_stride = conv_builder.get_downsample_stride(stride)
             downsample = nn.Sequential(
-                nn.Conv3d(self.inplanes, planes * block.expansion, kernel_size=1, stride=ds_stride, bias=False),
+                nn.Conv3d(
+                    self.inplanes,
+                    planes * block.expansion,
+                    kernel_size=1,
+                    stride=ds_stride,
+                    bias=False,
+                ),
                 nn.BatchNorm3d(planes * block.expansion),
             )
         layers = [block(self.inplanes, planes, conv_builder, stride, downsample)]
@@ -110,14 +160,11 @@ class VideoResNet(nn.Module):
         x = self.fc(x)
         return x
 
+
 # ------------------ r2plus1d_18 构造函数 ------------------
 def r2plus1d_18(weights: bool = True):
     model = VideoResNet(
-        BasicBlock,
-        [Conv2Plus1D]*4,
-        [2,2,2,2],
-        R2Plus1dStem,
-        num_classes=400
+        BasicBlock, [Conv2Plus1D] * 4, [2, 2, 2, 2], R2Plus1dStem, num_classes=400
     )
     if weights:
         url = "https://download.pytorch.org/models/r2plus1d_18-91a641e6.pth"
@@ -126,8 +173,11 @@ def r2plus1d_18(weights: bool = True):
         print("Loaded pretrained weights from Kinetics-400")
     return model
 
+
 # ------------------ R2Dmodel 接口 ------------------
-def R2Dmodel(embedding_dim: int = 128, pretrained: bool = True, freeze_layers: list = None):
+def R2Dmodel(
+    embedding_dim: int = 128, pretrained: bool = True, freeze_layers: list = None
+):
     model = r2plus1d_18(weights=pretrained)
 
     if freeze_layers is not None:
@@ -137,12 +187,16 @@ def R2Dmodel(embedding_dim: int = 128, pretrained: bool = True, freeze_layers: l
                     param.requires_grad = False
         # 支持嵌套层冻结 layer1.0 等
         for layer_name in freeze_layers:
-            if '.' in layer_name:
-                names = layer_name.split('.')
+            if "." in layer_name:
+                names = layer_name.split(".")
                 sub_module = model
                 try:
                     for n in names:
-                        sub_module = getattr(sub_module, n) if not n.isdigit() else sub_module[int(n)]
+                        sub_module = (
+                            getattr(sub_module, n)
+                            if not n.isdigit()
+                            else sub_module[int(n)]
+                        )
                     for param in sub_module.parameters():
                         param.requires_grad = False
                 except Exception as e:
@@ -152,11 +206,12 @@ def R2Dmodel(embedding_dim: int = 128, pretrained: bool = True, freeze_layers: l
     num_ftrs = model.fc.in_features
     model.fc = nn.Linear(num_ftrs, embedding_dim)
 
-    if freeze_layers is not None and 'fc' in freeze_layers:
+    if freeze_layers is not None and "fc" in freeze_layers:
         for param in model.fc.parameters():
             param.requires_grad = True
 
     return model
+
 
 # ------------------ 测试 forward ------------------
 if __name__ == "__main__":
@@ -164,7 +219,7 @@ if __name__ == "__main__":
     embedding_model = R2Dmodel(
         embedding_dim=EMBEDDING_DIM,
         pretrained=True,
-        freeze_layers=['stem','layer1','layer2','layer3','layer4','fc']
+        freeze_layers=["stem", "layer1", "layer2", "layer3", "layer4", "fc"],
     )
 
     batch_size, C, T, H, W = 4, 3, 16, 112, 112

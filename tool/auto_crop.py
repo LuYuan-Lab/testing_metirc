@@ -1,8 +1,8 @@
+from typing import Optional, Tuple
+
 import cv2
-import torch
 import numpy as np
 from ultralytics import YOLO
-from typing import Tuple, Optional
 
 
 class AutoCropper:
@@ -10,13 +10,15 @@ class AutoCropper:
     使用 YOLO 检测目标区域并返回裁剪框，只保留指定类别（如 'person'）。
     """
 
-    def __init__(self,
-                 model_path: str = "weights/yolov11n.pt",
-                 conf_thres: float = 0.5,
-                 target_class=None,
-                 margin_ratio: float = 0.1,
-                 default_crop_rect: Tuple[int, int, int, int] = (720, 120, 1700, 1000),
-                 max_missing_frames: int = 30):
+    def __init__(
+        self,
+        model_path: str = "weights/yolov11n.pt",
+        conf_thres: float = 0.5,
+        target_class=None,
+        margin_ratio: float = 0.1,
+        default_crop_rect: Tuple[int, int, int, int] = (720, 120, 1700, 1000),
+        max_missing_frames: int = 30,
+    ):
         """
         Args:
             model_path: YOLO 模型路径或模型名
@@ -55,17 +57,22 @@ class AutoCropper:
                 print(f"⚠️ 未找到类别名 '{self.target_class}'，将检测所有类别。")
                 self.target_class = None
 
-    def detect_crop_rect(self, frame: np.ndarray) -> Optional[Tuple[int, int, int, int]]:
+    def detect_crop_rect(
+        self, frame: np.ndarray
+    ) -> Optional[Tuple[int, int, int, int]]:
         """
         输入一帧 RGB 图像，返回裁剪框 (x1, y1, x2, y2)
         若连续超过 max_missing_frames 帧未检测到目标，则返回 None
         """
-        results = self.model(frame,verbose=False)
+        results = self.model(frame, verbose=False)
         boxes = results[0].boxes
 
         if boxes is None or len(boxes) == 0:
             self.missing_count += 1
-            if self.last_crop_rect is not None and self.missing_count < self.max_missing_frames:
+            if (
+                self.last_crop_rect is not None
+                and self.missing_count < self.max_missing_frames
+            ):
                 return self.last_crop_rect
             else:
                 return None
@@ -80,7 +87,10 @@ class AutoCropper:
                 xyxy_all = xyxy_all[mask]
             else:
                 self.missing_count += 1
-                if self.last_crop_rect is not None and self.missing_count < self.max_missing_frames:
+                if (
+                    self.last_crop_rect is not None
+                    and self.missing_count < self.max_missing_frames
+                ):
                     return self.last_crop_rect
                 else:
                     return None
