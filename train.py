@@ -8,9 +8,11 @@ from tqdm import tqdm
 from collections import defaultdict
 
 # 导入我们之前编写的模块
-from model import R2Dmodel
-from dataset import VideoDataset
-from loss import TripletLossWrapper
+from tool.dataset import VideoDataset
+from tool.loss import TripletLossWrapper
+from model.ResNetModel import R2Dmodel
+import torch.multiprocessing as mp
+mp.set_start_method('spawn', force=True)
 
 # -----------------------------------------------------------------------------
 # 1. PK Batch Sampler - 这是三元组训练的关键部分
@@ -130,7 +132,7 @@ def main(args):
     )
 
     # 创建模型、损失函数和优化器
-    model = R2Dmodel(embedding_dim=args.embedding_dim, freeze_layers=args.freeze_layers).to(device)
+    model = R2Dmodel(embedding_dim=args.embedding_dim, pretrained=True, freeze_layers=args.freeze_layers).to(device)
     loss_fn = TripletLossWrapper(margin=args.margin, miner_type='semihard').to(device)
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1)
@@ -158,7 +160,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Train a video embedding model using Triplet Loss.")
     
     parser.add_argument('--data_root', type=str, default='data', help="Path to the root data directory.")
-    parser.add_argument('--output_dir', type=str, default='checkpoints', help="Directory to save model checkpoints.")
+    parser.add_argument('--output_dir', type=str, default='checkpoints/yolodetect', help="Directory to save model checkpoints.")
     parser.add_argument('--epochs', type=int, default=30, help="Total number of epochs to train.")
     parser.add_argument('--lr', type=float, default=1e-4, help="Learning rate.")
     parser.add_argument('--num_frames', type=int, default=30, help="Number of frames to sample from each video.")
