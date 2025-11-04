@@ -1,27 +1,30 @@
-import os
-import cv2
-import torch
-import random
 import json
+import os
+import random
+from typing import List, Tuple
+
+import cv2
 import numpy as np
+import torch
+from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
 from torchvision.transforms import functional as F
-from typing import Tuple, List
-from PIL import Image
+
 from tool.auto_crop import AutoCropper
 
 
 class VideoDataset(Dataset):
 
-    def __init__(self, 
-                 data_root: str, 
-                 mode: str = 'train', 
-                 num_frames: int = 30,
-                 random_offset: int = 50,
-                 resize_shape: Tuple[int, int] = (112, 112),
-                 crop_json: str = "boxes_json/crop_boxes.json"):
-
+    def __init__(
+        self,
+        data_root: str,
+        mode: str = "train",
+        num_frames: int = 30,
+        random_offset: int = 50,
+        resize_shape: Tuple[int, int] = (112, 112),
+        crop_json: str = "boxes_json/crop_boxes.json",
+    ):
         """
         Args:
             data_root (str): 数据集根目录
@@ -31,8 +34,8 @@ class VideoDataset(Dataset):
             resize_shape (Tuple[int,int]): 输出图像大小
             crop_json (str): 存储预生成裁剪框的 JSON 文件路径
         """
-        assert mode in ['train', 'val']
-        
+        assert mode in ["train", "val"]
+
         self.data_path = os.path.join(data_root, mode)
         self.mode = mode
         self.num_frames = num_frames
@@ -44,62 +47,72 @@ class VideoDataset(Dataset):
             model_path="weights/yolov11n.pt",
             conf_thres=0.5,
             target_class="person",
-            margin_ratio=0.1
+            margin_ratio=0.1,
         )
 
         # ✅ 加载裁剪框缓存
         if os.path.exists(crop_json):
             with open(crop_json, "r") as f:
                 self.crop_cache = json.load(f)
-            print(f"✅ Loaded {len(self.crop_cache)} cached crop boxes from {crop_json}")
+            print(
+                f"✅ Loaded {len(self.crop_cache)} cached crop boxes from {crop_json}"
+            )
         else:
-            print(f"⚠️ crop_boxes.json not found, YOLO will run on the fly.")
+            print("⚠️ crop_boxes.json not found, YOLO will run on the fly.")
             self.crop_cache = {}
 
         self.video_files = []
         self.class_to_idx = {}
-        
+
         self._find_classes_and_videos()
         self._build_transforms()
 
-
     def _find_classes_and_videos(self):
         """扫描类别文件夹"""
-        classes = sorted(entry.name for entry in os.scandir(self.data_path) if entry.is_dir())
+        classes = sorted(
+            entry.name for entry in os.scandir(self.data_path) if entry.is_dir()
+        )
         if not classes:
             raise FileNotFoundError(f"No class folders found in {self.data_path}")
-        
+
         self.class_to_idx = {cls_name: i for i, cls_name in enumerate(classes)}
-        
+
         for class_name, class_idx in self.class_to_idx.items():
             class_path = os.path.join(self.data_path, class_name)
             for video_file in os.listdir(class_path):
-                if video_file.lower().endswith(('.mp4', '.avi', '.mov', '.mkv')):
-                    self.video_files.append((os.path.join(class_path, video_file), class_idx))
-        
-        print(f"✅ Found {len(self.video_files)} videos in {len(classes)} classes for '{self.mode}' mode.")
+                if video_file.lower().endswith((".mp4", ".avi", ".mov", ".mkv")):
+                    self.video_files.append(
+                        (os.path.join(class_path, video_file), class_idx)
+                    )
 
+        print(
+            f"✅ Found {len(self.video_files)} videos in {len(classes)} classes for '{self.mode}' mode."
+        )
 
     def _build_transforms(self):
         """构建图像变换流水线"""
-        self.base_transform = transforms.Compose([
-            transforms.ToPILImage(),
-            transforms.Resize(self.resize_shape),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                 std=[0.229, 0.224, 0.225])
-        ])
-        self.pil_transform = transforms.Compose([
-            transforms.Resize(self.resize_shape),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                 std=[0.229, 0.224, 0.225])
-        ])
-
+        self.base_transform = transforms.Compose(
+            [
+                transforms.ToPILImage(),
+                transforms.Resize(self.resize_shape),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                ),
+            ]
+        )
+        self.pil_transform = transforms.Compose(
+            [
+                transforms.Resize(self.resize_shape),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                ),
+            ]
+        )
 
     def __len__(self):
         return len(self.video_files)
-
 
     def __getitem__(self, idx: int):
         video_path, label = self.video_files[idx]
@@ -110,7 +123,7 @@ class VideoDataset(Dataset):
             return self.__getitem__((idx + 1) % len(self))
 
         # 随机增强（只对train）
-        if self.mode == 'train':
+        if self.mode == "train":
             do_flip = random.random() < 0.2
             brightness = random.uniform(0.8, 1.2) if random.random() < 0.5 else 1.0
             contrast = random.uniform(0.8, 1.2) if random.random() < 0.5 else 1.0
@@ -128,7 +141,6 @@ class VideoDataset(Dataset):
 
         # (T, C, H, W) -> (C, T, H, W)
         return processed.permute(1, 0, 2, 3), label
-
 
     def _sample_and_crop_frames(self, video_path: str) -> List[np.ndarray]:
         """采样并裁剪帧"""
@@ -148,9 +160,9 @@ class VideoDataset(Dataset):
         if crop_rect is None:
             crop_rect = self.auto_cropper.detect_video_crop(video_path)
             self.crop_cache[video_path] = crop_rect  # 可选：更新缓存
-        
+
         x1, y1, x2, y2 = map(int, crop_rect)
-        if self.mode == 'train':
+        if self.mode == "train":
             x1 += random.randint(-self.random_offset, self.random_offset)
             y1 += random.randint(-self.random_offset, self.random_offset)
             x2 += random.randint(-self.random_offset, self.random_offset)
