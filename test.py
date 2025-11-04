@@ -8,10 +8,10 @@ from tqdm import tqdm
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import accuracy_score, classification_report
 from sklearn.manifold import TSNE
+from model.ResNetModel import R2Dmodel
 
 # 导入我们之前编写的模块
-from model import R2Dmodel
-from dataset import VideoDataset
+from tool.dataset import VideoDataset
 
 @torch.no_grad()
 def extract_embeddings(model, data_loader, device):
@@ -165,7 +165,7 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Test a trained video embedding model.")
     
-    parser.add_argument('--model_path', type=str, default='checkpoints/best_model.pth',
+    parser.add_argument('--model_path', type=str, default='checkpoints/yolodetect/best_model.pth',
                         help="Path to the saved best model checkpoint.")
     parser.add_argument('--data_root', type=str, default='data', 
                         help="Path to the root data directory.")
