@@ -40,9 +40,7 @@ class PKBatchSampler(Sampler):
         self.labels = list(self.labels_to_indices.keys())
 
         # 过滤掉样本数少于 K 的类别
-        self.labels = [
-            label for label in self.labels if len(self.labels_to_indices[label]) >= k
-        ]
+        self.labels = [label for label in self.labels if len(self.labels_to_indices[label]) >= k]
 
     def __iter__(self):
         # 计算每个 epoch 的迭代次数
@@ -120,12 +118,8 @@ def main(args):
     os.makedirs(args.output_dir, exist_ok=True)
 
     # 创建数据集
-    train_dataset = VideoDataset(
-        data_root=args.data_root, mode="train", num_frames=args.num_frames
-    )
-    val_dataset = VideoDataset(
-        data_root=args.data_root, mode="val", num_frames=args.num_frames
-    )
+    train_dataset = VideoDataset(data_root=args.data_root, mode="train", num_frames=args.num_frames)
+    val_dataset = VideoDataset(data_root=args.data_root, mode="val", num_frames=args.num_frames)
 
     # 创建采样器和数据加载器
     print(f"Creating PK Sampler with P={args.p_classes}, K={args.k_samples}")
@@ -158,14 +152,10 @@ def main(args):
     # 开始训练
     best_val_loss = float("inf")
     for epoch in range(1, args.epochs + 1):
-        avg_train_loss = train_one_epoch(
-            model, train_loader, optimizer, loss_fn, device, epoch
-        )
+        avg_train_loss = train_one_epoch(model, train_loader, optimizer, loss_fn, device, epoch)
         avg_val_loss = validate(model, val_loader, loss_fn, device)
 
-        print(
-            f"Epoch {epoch}/{args.epochs} -> Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss:.4f}"
-        )
+        print(f"Epoch {epoch}/{args.epochs} -> Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss:.4f}")
 
         scheduler.step()
 
@@ -174,30 +164,22 @@ def main(args):
             best_val_loss = avg_val_loss
             best_model_path = os.path.join(args.output_dir, "best_model.pth")
             torch.save(model.state_dict(), best_model_path)
-            print(
-                f"New best model saved to {best_model_path} with validation loss: {best_val_loss:.4f}"
-            )
+            print(f"New best model saved to {best_model_path} with validation loss: {best_val_loss:.4f}")
 
     print("Training finished.")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Train a video embedding model using Triplet Loss."
-    )
+    parser = argparse.ArgumentParser(description="Train a video embedding model using Triplet Loss.")
 
-    parser.add_argument(
-        "--data_root", type=str, default="data", help="Path to the root data directory."
-    )
+    parser.add_argument("--data_root", type=str, default="data", help="Path to the root data directory.")
     parser.add_argument(
         "--output_dir",
         type=str,
         default="checkpoints/yolodetect",
         help="Directory to save model checkpoints.",
     )
-    parser.add_argument(
-        "--epochs", type=int, default=30, help="Total number of epochs to train."
-    )
+    parser.add_argument("--epochs", type=int, default=30, help="Total number of epochs to train.")
     parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate.")
     parser.add_argument(
         "--num_frames",
@@ -207,9 +189,7 @@ if __name__ == "__main__":
     )
 
     # PK Sampler 参数
-    parser.add_argument(
-        "--p_classes", type=int, default=5, help="P: Number of classes per batch."
-    )
+    parser.add_argument("--p_classes", type=int, default=5, help="P: Number of classes per batch.")
     parser.add_argument(
         "--k_samples",
         type=int,
@@ -224,9 +204,7 @@ if __name__ == "__main__":
         default=128,
         help="Dimension of the output embedding vector.",
     )
-    parser.add_argument(
-        "--margin", type=float, default=0.2, help="Margin for the triplet loss."
-    )
+    parser.add_argument("--margin", type=float, default=0.2, help="Margin for the triplet loss.")
     parser.add_argument(
         "--freeze_layers",
         type=list,

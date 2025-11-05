@@ -38,9 +38,7 @@ def extract_embeddings(model, data_loader, device):
     return all_embeddings, all_labels
 
 
-def evaluate_knn(
-    train_embeddings, train_labels, val_embeddings, val_labels, class_names
-):
+def evaluate_knn(train_embeddings, train_labels, val_embeddings, val_labels, class_names):
     """
     使用 k-NN 分类器评估特征向量的质量。
     """
@@ -83,9 +81,7 @@ def visualize_tsne(embeddings, labels, class_names, filename="tsne_plot.png"):
         plt.rcParams["font.sans-serif"] = ["SimHei"]  # 指定默认字体
         plt.rcParams["axes.unicode_minus"] = False  # 解决负号'-'显示为方块的问题
     except Exception as e:
-        print(
-            f"Warning: Could not set Chinese font 'SimHei'. Plot labels may be garbled. Error: {e}"
-        )
+        print(f"Warning: Could not set Chinese font 'SimHei'. Plot labels may be garbled. Error: {e}")
         print("Please ensure you have a Chinese font like 'SimHei' installed.")
 
     embeddings_np = embeddings.numpy()
@@ -112,9 +108,7 @@ def visualize_tsne(embeddings, labels, class_names, filename="tsne_plot.png"):
         plt.scatter(
             tsne_results[class_indices, 0],
             tsne_results[class_indices, 1],
-            c=(
-                [cmap(i / (num_classes - 1))] if num_classes > 1 else [cmap(0)]
-            ),  # 修正cmap的使用
+            c=([cmap(i / (num_classes - 1))] if num_classes > 1 else [cmap(0)]),  # 修正cmap的使用
             label=class_name,
             alpha=0.7,
         )
@@ -138,12 +132,8 @@ def main(args):
 
     # 1. 准备数据集和 DataLoader
     # 我们需要 'train' 集来训练 k-NN，'val' 集来测试
-    train_dataset = VideoDataset(
-        data_root=args.data_root, mode="train", num_frames=args.num_frames
-    )
-    val_dataset = VideoDataset(
-        data_root=args.data_root, mode="val", num_frames=args.num_frames
-    )
+    train_dataset = VideoDataset(data_root=args.data_root, mode="train", num_frames=args.num_frames)
+    val_dataset = VideoDataset(data_root=args.data_root, mode="val", num_frames=args.num_frames)
 
     # 从数据集中获取类别名称
     class_names = list(train_dataset.class_to_idx.keys())
@@ -178,9 +168,7 @@ def main(args):
     print(f"Validation embeddings saved to {output_path}")
 
     # 5. 运行 k-NN 评估
-    evaluate_knn(
-        train_embeddings, train_labels, val_embeddings, val_labels, class_names
-    )
+    evaluate_knn(train_embeddings, train_labels, val_embeddings, val_labels, class_names)
 
     # 6. 运行 t-SNE 可视化 (在 'val' 集上)
     plot_path = os.path.join(os.path.dirname(args.model_path), "val_tsne_plot.png")
@@ -188,9 +176,7 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Test a trained video embedding model."
-    )
+    parser = argparse.ArgumentParser(description="Test a trained video embedding model.")
 
     parser.add_argument(
         "--model_path",
@@ -198,9 +184,7 @@ if __name__ == "__main__":
         default="checkpoints/yolodetect/best_model.pth",
         help="Path to the saved best model checkpoint.",
     )
-    parser.add_argument(
-        "--data_root", type=str, default="data", help="Path to the root data directory."
-    )
+    parser.add_argument("--data_root", type=str, default="data", help="Path to the root data directory.")
 
     parser.add_argument(
         "--num_frames",

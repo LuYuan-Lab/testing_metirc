@@ -3,9 +3,7 @@ import torch.nn as nn
 from torchvision.models.video import R2Plus1D_18_Weights, r2plus1d_18
 
 
-def R2Dmodel(
-    embedding_dim: int = 128, pretrained: bool = True, freeze_layers: list = None
-):
+def R2Dmodel(embedding_dim: int = 128, pretrained: bool = True, freeze_layers: list = None):
     # 1. 加载模型
     if pretrained:
         print("Loading pretrained weights from Kinetics-400.")
@@ -87,9 +85,7 @@ if __name__ == "__main__":
     # 创建一个假的视频张量
     dummy_video_tensor = torch.randn(batch_size, channels, num_frames, height, width)
 
-    print(
-        f"\nTesting forward pass with a dummy tensor of shape: {dummy_video_tensor.shape}"
-    )
+    print(f"\nTesting forward pass with a dummy tensor of shape: {dummy_video_tensor.shape}")
 
     # 将输入传递给模型
     embeddings = embedding_model(dummy_video_tensor)

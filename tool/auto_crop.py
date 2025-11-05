@@ -57,9 +57,7 @@ class AutoCropper:
                 print(f"⚠️ 未找到类别名 '{self.target_class}'，将检测所有类别。")
                 self.target_class = None
 
-    def detect_crop_rect(
-        self, frame: np.ndarray
-    ) -> Optional[Tuple[int, int, int, int]]:
+    def detect_crop_rect(self, frame: np.ndarray) -> Optional[Tuple[int, int, int, int]]:
         """
         输入一帧 RGB 图像，返回裁剪框 (x1, y1, x2, y2)
         若连续超过 max_missing_frames 帧未检测到目标，则返回 None
@@ -69,10 +67,7 @@ class AutoCropper:
 
         if boxes is None or len(boxes) == 0:
             self.missing_count += 1
-            if (
-                self.last_crop_rect is not None
-                and self.missing_count < self.max_missing_frames
-            ):
+            if self.last_crop_rect is not None and self.missing_count < self.max_missing_frames:
                 return self.last_crop_rect
             else:
                 return None
@@ -87,10 +82,7 @@ class AutoCropper:
                 xyxy_all = xyxy_all[mask]
             else:
                 self.missing_count += 1
-                if (
-                    self.last_crop_rect is not None
-                    and self.missing_count < self.max_missing_frames
-                ):
+                if self.last_crop_rect is not None and self.missing_count < self.max_missing_frames:
                     return self.last_crop_rect
                 else:
                     return None

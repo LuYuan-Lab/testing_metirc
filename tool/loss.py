@@ -36,12 +36,8 @@ class TripletLossWrapper(nn.Module):
             "all",
         ], "miner_type must be 'semihard', 'hard', or 'all'"
 
-        print(
-            f"Initializing Triplet Loss with margin={margin} and '{miner_type}' miner."
-        )
-        self.miner = miners.TripletMarginMiner(
-            margin=self.margin, type_of_triplets=miner_type
-        )
+        print(f"Initializing Triplet Loss with margin={margin} and '{miner_type}' miner.")
+        self.miner = miners.TripletMarginMiner(margin=self.margin, type_of_triplets=miner_type)
 
     def forward(self, embeddings: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
         """
