@@ -54,9 +54,7 @@ class VideoDataset(Dataset):
         if os.path.exists(crop_json):
             with open(crop_json, "r") as f:
                 self.crop_cache = json.load(f)
-            print(
-                f"✅ Loaded {len(self.crop_cache)} cached crop boxes from {crop_json}"
-            )
+            print(f"✅ Loaded {len(self.crop_cache)} cached crop boxes from {crop_json}")
         else:
             print("⚠️ crop_boxes.json not found, YOLO will run on the fly.")
             self.crop_cache = {}
@@ -69,9 +67,7 @@ class VideoDataset(Dataset):
 
     def _find_classes_and_videos(self):
         """扫描类别文件夹"""
-        classes = sorted(
-            entry.name for entry in os.scandir(self.data_path) if entry.is_dir()
-        )
+        classes = sorted(entry.name for entry in os.scandir(self.data_path) if entry.is_dir())
         if not classes:
             raise FileNotFoundError(f"No class folders found in {self.data_path}")
 
@@ -81,13 +77,9 @@ class VideoDataset(Dataset):
             class_path = os.path.join(self.data_path, class_name)
             for video_file in os.listdir(class_path):
                 if video_file.lower().endswith((".mp4", ".avi", ".mov", ".mkv")):
-                    self.video_files.append(
-                        (os.path.join(class_path, video_file), class_idx)
-                    )
+                    self.video_files.append((os.path.join(class_path, video_file), class_idx))
 
-        print(
-            f"✅ Found {len(self.video_files)} videos in {len(classes)} classes for '{self.mode}' mode."
-        )
+        print(f"✅ Found {len(self.video_files)} videos in {len(classes)} classes for '{self.mode}' mode.")
 
     def _build_transforms(self):
         """构建图像变换流水线"""
@@ -96,18 +88,14 @@ class VideoDataset(Dataset):
                 transforms.ToPILImage(),
                 transforms.Resize(self.resize_shape),
                 transforms.ToTensor(),
-                transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                ),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             ]
         )
         self.pil_transform = transforms.Compose(
             [
                 transforms.Resize(self.resize_shape),
                 transforms.ToTensor(),
-                transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                ),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             ]
         )
 

@@ -2,12 +2,24 @@ default_language_version:
   python: python3.11
 
 repos:
+  # ---- 自动删除未使用的导入和变量 ----
+  - repo: https://github.com/PyCQA/autoflake
+    rev: v2.3.1
+    hooks:
+      - id: autoflake
+        args:
+          - --in-place
+          - --remove-unused-variables
+          - --remove-all-unused-imports
+        exclude: ^.venv/  # 排除虚拟环境
+
   # ---- Black: 自动代码格式化 ----
   - repo: https://github.com/psf/black
     rev: 24.8.0
     hooks:
       - id: black
         language_version: python3.11
+        args: ["--line-length", "120"]  # 与 .flake8 中的 max-line-length 保持一致
 
   # ---- isort: 自动整理 import 顺序 ----
   - repo: https://github.com/PyCQA/isort
@@ -15,7 +27,11 @@ repos:
     hooks:
       - id: isort
         name: isort (python imports sorter)
-        args: ["--profile", "black"]
+        args: 
+          - "--profile"
+          - "black"
+          - "--line-length"
+          - "120"  # 与 .flake8 和 black 保持一致
 
   # ---- flake8: 代码风格检查 ----
   - repo: https://github.com/pycqa/flake8
@@ -25,3 +41,5 @@ repos:
         additional_dependencies:
           - flake8-bugbear
           - flake8-comprehensions
+        # 移除硬编码的 --max-line-length，让 flake8 自动读取 .flake8 配置
+        # 确保 exclude 与 .flake8 一致（通过 .flake8 管理即可，这里无需重复）

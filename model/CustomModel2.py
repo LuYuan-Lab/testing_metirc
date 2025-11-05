@@ -12,10 +12,7 @@ class DynamicConv3D(nn.Module):
     def __init__(self, in_ch, out_ch, kernel_size, stride, padding, n_kernels=2):
         super().__init__()
         self.convs = nn.ModuleList(
-            [
-                nn.Conv3d(in_ch, out_ch, kernel_size, stride, padding, bias=False)
-                for _ in range(n_kernels)
-            ]
+            [nn.Conv3d(in_ch, out_ch, kernel_size, stride, padding, bias=False) for _ in range(n_kernels)]
         )
         self.softmax = nn.Softmax(dim=0)
         self.n_kernels = n_kernels
@@ -33,9 +30,7 @@ class Conv3DWithTransformer(nn.Module):
         super().__init__()
         self.conv = nn.Conv3d(in_ch, out_ch, kernel_size, stride, padding, bias=False)
         self.norm = nn.LayerNorm(out_ch)
-        self.trans = nn.TransformerEncoder(
-            nn.TransformerEncoderLayer(d_model=out_ch, nhead=num_heads), num_layers=1
-        )
+        self.trans = nn.TransformerEncoder(nn.TransformerEncoderLayer(d_model=out_ch, nhead=num_heads), num_layers=1)
 
     def forward(self, x):
         # x: B,C,T,H,W -> B,T*H*W,C
@@ -51,13 +46,9 @@ class Conv3DWithTransformer(nn.Module):
 # ============================================
 # 🔧 自定义卷积构造接口
 # ============================================
-def build_conv3d(
-    in_channels, out_channels, kernel_size, stride, padding, conv_type="3d"
-):
+def build_conv3d(in_channels, out_channels, kernel_size, stride, padding, conv_type="3d"):
     if conv_type == "3d":
-        return nn.Conv3d(
-            in_channels, out_channels, kernel_size, stride, padding, bias=False
-        )
+        return nn.Conv3d(in_channels, out_channels, kernel_size, stride, padding, bias=False)
 
     elif conv_type == "depthwise":
         return nn.Sequential(
@@ -108,9 +99,7 @@ def build_conv3d(
         return DeformConv3d(in_channels, out_channels, kernel_size, stride, padding)
 
     elif conv_type == "transformer":
-        return Conv3DWithTransformer(
-            in_channels, out_channels, kernel_size, stride, padding
-        )
+        return Conv3DWithTransformer(in_channels, out_channels, kernel_size, stride, padding)
 
     else:
         raise ValueError(f"Unsupported conv_type: {conv_type}")
@@ -119,9 +108,7 @@ def build_conv3d(
 # ============================================
 # 🔄 替换 Conv2Plus1D 模块
 # ============================================
-def R2Dmodel_custom_conv(
-    embedding_dim=128, pretrained=True, conv_type="3d", freeze_layers=None
-):
+def R2Dmodel_custom_conv(embedding_dim=128, pretrained=True, conv_type="3d", freeze_layers=None):
     """
     构造支持多种卷积的 R2Plus1D_18 模型
     """
@@ -131,9 +118,7 @@ def R2Dmodel_custom_conv(
 
     # 2. 获取 Conv2Plus1D 类型
     temp_model = r2plus1d_18()
-    Conv2Plus1D = type(
-        next(m for m in temp_model.modules() if "Conv2Plus1D" in str(type(m)))
-    )
+    Conv2Plus1D = type(next(m for m in temp_model.modules() if "Conv2Plus1D" in str(type(m))))
     del temp_model
 
     # 3. 递归替换
@@ -169,9 +154,7 @@ def R2Dmodel_custom_conv(
                 stride = (t_stride, h_stride, w_stride)
                 padding = (t_pad, h_pad, w_pad)
 
-                new_conv = build_conv3d(
-                    in_planes, out_planes, kernel_size, stride, padding, conv_type
-                )
+                new_conv = build_conv3d(in_planes, out_planes, kernel_size, stride, padding, conv_type)
                 setattr(module, name, new_conv)
             else:
                 replace_conv2plus1d_modules(child)

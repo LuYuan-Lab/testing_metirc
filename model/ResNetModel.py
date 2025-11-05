@@ -53,9 +53,7 @@ class BasicBlock(nn.Module):
             nn.BatchNorm3d(planes),
             nn.ReLU(inplace=True),
         )
-        self.conv2 = nn.Sequential(
-            conv_builder(planes, planes, midplanes), nn.BatchNorm3d(planes)
-        )
+        self.conv2 = nn.Sequential(conv_builder(planes, planes, midplanes), nn.BatchNorm3d(planes))
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
@@ -163,9 +161,7 @@ class VideoResNet(nn.Module):
 
 # ------------------ r2plus1d_18 构造函数 ------------------
 def r2plus1d_18(weights: bool = True):
-    model = VideoResNet(
-        BasicBlock, [Conv2Plus1D] * 4, [2, 2, 2, 2], R2Plus1dStem, num_classes=400
-    )
+    model = VideoResNet(BasicBlock, [Conv2Plus1D] * 4, [2, 2, 2, 2], R2Plus1dStem, num_classes=400)
     if weights:
         url = "https://download.pytorch.org/models/r2plus1d_18-91a641e6.pth"
         state_dict = load_state_dict_from_url(url, progress=True)
@@ -175,9 +171,7 @@ def r2plus1d_18(weights: bool = True):
 
 
 # ------------------ R2Dmodel 接口 ------------------
-def R2Dmodel(
-    embedding_dim: int = 128, pretrained: bool = True, freeze_layers: list = None
-):
+def R2Dmodel(embedding_dim: int = 128, pretrained: bool = True, freeze_layers: list = None):
     model = r2plus1d_18(weights=pretrained)
 
     if freeze_layers is not None:
@@ -192,11 +186,7 @@ def R2Dmodel(
                 sub_module = model
                 try:
                     for n in names:
-                        sub_module = (
-                            getattr(sub_module, n)
-                            if not n.isdigit()
-                            else sub_module[int(n)]
-                        )
+                        sub_module = getattr(sub_module, n) if not n.isdigit() else sub_module[int(n)]
                     for param in sub_module.parameters():
                         param.requires_grad = False
                 except Exception as e:

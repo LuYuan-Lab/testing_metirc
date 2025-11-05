@@ -1,145 +1,184 @@
-# 考场行为识别与监控AI算法
+# 考场行为识别与监控 AI 系统
 
-本项目是一个基于深度学习的视频理解项目，旨在通过度量学习（Metric Learning）训练一个能够区分不同考场行为（如举手、玩手机、站立等）的AI模型。模型利用3D卷积神经网络（R(2+1)D）从视频片段中提取高质量的特征向量（Embeddings），使得相似行为的视频在特征空间中距离更近，不同行为的视频距离更远。
+基于深度学习和度量学习的视频理解系统，用于识别考场中的异常行为。采用 R(2+1)D 视频网络提取时空特征，通过 Triplet Loss 和 P-K 采样策略训练判别性特征表示。
 
-## ✨ 项目特点
+## 🎯 核心特性
 
-- **先进的模型结构**: 采用 `R(2+1)D` 视频识别模型，能有效捕捉时空特征。
-- **度量学习**: 使用三元组损失（Triplet Loss）和 `P-K` 采样策略进行端到端的度量学习，专注于学习具有区分性的特征。
-- **高效的数据处理**: 自定义的 `VideoDataset` 类，支持视频帧采样、特定区域裁剪、数据增强（随机偏移、翻转、颜色扰动）等。
-- **全面的模型评估**: 提供 `k-NN` 分类准确率评估和 `t-SNE` 可视化，直观地衡量模型学习到的特征质量。
-- **模块化设计**: 代码结构清晰，分为数据处理、模型定义、损失函数、训练和测试脚本，易于理解和扩展。
+- **时空特征提取**：R(2+1)D 视频识别模型，有效捕捉时空特征
+- **度量学习训练**：Triplet Loss + Semi-hard/Hard 挖掘策略
+- **智能批次采样**：P-K 采样确保有效的三元组构建
+- **YOLO 自动裁剪**：基于目标检测的视频区域智能裁剪
+- **全面评估体系**：k-NN 分类 + t-SNE 可视化 + 完整测试套件
 
-## 📂 项目结构
-
-```
-.
-├── data/                     # 数据集根目录
-│   ├── train/                # 训练集
-│   │   ├── 举手/
-│   │   ├── 手机/
-│   │   └── ...
-│   └── val/                  # 验证集
-│       ├── 举手/
-│       └── ...
-├── checkpoints/              # 模型权重和输出文件
-# 考场行为识别与监控 — 项目说明
-
-这是一个用于考场行为识别的度量学习项目。目标是使用视频片段训练一个能够提取判别性 Embedding 的模型，便于后续使用 k-NN 或其他检索/分类方法对行为进行识别。
-
-核心思想：使用 R(2+1)D 风格的时空卷积网络提取视频特征，并通过 Triplet Loss（配合 P-K 采样）进行度量学习，使得相同行为的视频在特征空间距离更近。
-
-## 主要特点
-
-- 使用 R(2+1)D / VideoResNet 风格的视频骨干网络（项目内含 `model/ResNetModel.py` 的自定义实现以及 `model/model.py` 的 torchvision 接口）。
-- 度量学习训练：Triplet Loss + TripletMarginMiner（semihard 等挖掘器），并使用自定义的 P-K Batch Sampler 保证每个 batch 中包含 P 类、每类 K 个样本。
-- 自动裁剪辅助：支持基于 YOLO 的视频区域自动裁剪（`tool/auto_crop.py` 与 `scripts/batch_crop.py`）。
-- 评估：提取 Embeddings 后使用 k-NN 评估，并提供 t-SNE 可视化（`test.py`）。
-
-## 项目结构与文件说明
+## 📁 项目结构
 
 ```
 .
-├── data/                      # 用户的数据根目录（train/val 子目录）
-├── checkpoints/               # 模型和评估结果（训练过程会保存 best_model.pth）
-├── model/                     # 两个 model 实现：torchvision 接口和自定义 ResNet 视频实现
-│   ├── model.py               # 基于 torchvision r2plus1d_18 的工厂函数 R2Dmodel
-│   ├── ResNetModel.py         # 自定义 VideoResNet / Conv2Plus1D 实现与 R2Dmodel
-│   └── CustomModel2.py        # 备用/实验型模型（可选）
-├── tool/                      # 工具集合
-│   ├── dataset.py             # `VideoDataset`：视频读取、采样、裁剪与增强
-│   ├── loss.py                # `TripletLossWrapper`：Triplet 损失 + miner
-│   ├── auto_crop.py           # 基于 ultralytics YOLO 的自动裁剪工具（返回裁剪框或 None）
-│   ├── view_cropping.py       # 可视化裁剪结果的脚本（查看样例裁剪）
-│   └── per_crop_videos.py     # 按视频生成裁剪图像的辅助脚本（实验性）
-├── scripts/
-│   └── batch_crop.py          # 使用 auto_crop 批量裁剪并保存视频帧为 JPEG
-├── train.py                   # 训练入口：包含 PKBatchSampler、训练/验证循环
-├── test.py                    # 评估入口：特征提取、k-NN 评估、t-SNE 可视化
-└── README.md                  # 本文档（当前文件）
+├── model/                    # 模型实现
+│   ├── ResNetModel.py       # 自定义 R(2+1)D 视频网络
+│   ├── model.py            # torchvision 接口封装
+│   └── CustomModel2.py     # 实验性模型
+├── tool/                    # 核心工具集
+│   ├── dataset.py         # 视频数据集与预处理
+│   ├── loss.py           # Triplet Loss 封装
+│   ├── auto_crop.py      # YOLO 自动裁剪
+│   ├── view_cropping.py  # 裁剪可视化工具
+│   └── per_crop_videos.py # 视频裁剪脚本
+├── tests/                  # 测试套件
+│   ├── test_dataset.py   # 数据集测试
+│   ├── test_model.py     # 模型测试
+│   ├── test_loss.py      # 损失函数测试
+│   └── test_sampler.py   # 采样器测试
+├── boxes_json/            # 裁剪框缓存
+├── checkpoints/          # 模型保存目录
+├── weights/             # 预训练权重
+├── train.py            # 训练入口
+└── test.py            # 评估入口
 ```
 
-## 依赖与环境
+## 🚀 环境配置
 
-建议使用 conda 或 venv 创建隔离环境，安装主要依赖：
-
+### 1. 创建环境
 ```bash
-pip install torch torchvision
-pip install opencv-python numpy matplotlib scikit-learn tqdm pillow
-pip install pytorch-metric-learning
-# 若需要自动裁剪功能：
-pip install ultralytics
+conda create -n metric python=3.11
+conda activate metric
 ```
 
-建议将实际依赖导出为 `requirements.txt` 并提交，以保证可复现性。
-
-## 快速开始
-
-1) 准备数据：
-
-        data/
-        ├── train/
-        │   ├── class1/  # 每个行为一个文件夹，里面放视频
-        │   └── class2/
-        └── val/
-
-2) 训练模型（默认配置）：
-
+### 2. 安装依赖
 ```bash
-python train.py --data_root data --output_dir checkpoints/yolodetect --epochs 30
+pip install -r requirements.txt
 ```
 
-常用参数说明（`train.py`）:
+### 3. 核心依赖说明
+- **深度学习框架**：torch==2.7.1+cu128, torchvision==0.22.1+cu128
+- **度量学习**：pytorch-metric-learning==2.9.0
+- **目标检测**：ultralytics==8.3.222
+- **数据处理**：opencv-python, numpy, scikit-learn
+- **测试框架**：pytest（完整测试套件）
 
-- `--data_root`: 数据根路径（默认 `data`）
-- `--output_dir`: 保存模型的目录（默认 `checkpoints/yolodetect`）
-- `--p_classes` / `--k_samples`: P-K 采样参数
-- `--embedding_dim`: 输出 Embedding 维度
-- `--num_frames`: 每个视频采样帧数
+## 📊 数据组织
 
-训练期间会保存验证集上表现最好的模型到 `output_dir/best_model.pth`。
+```
+data/
+├── train/
+│   ├── 举手/          # 视频文件 (.mp4, .avi 等)
+│   ├── 玩手机/
+│   ├── 正常/
+│   └── [其他行为]/
+└── val/
+    └── [对应类别]/
+```
 
-3) 评估模型：
+## 🔧 使用指南
 
+### 1. 训练模型
 ```bash
-python test.py --model_path checkpoints/yolodetect/best_model.pth --data_root data
+python train.py --data_root data \
+                --output_dir checkpoints/model \
+                --p_classes 5 \
+                --k_samples 4 \
+                --embedding_dim 128 \
+                --epochs 30 \
+                --margin 0.2
 ```
 
-`test.py` 会输出 k-NN 的准确率和分类报告，并在模型目录生成 `val_tsne_plot.png` 和 `val_embeddings.pt`。
+**核心参数**：
+- `--p_classes`: P-K 采样中的类别数（建议 3-5）
+- `--k_samples`: 每类样本数（建议 4-8）
+- `--embedding_dim`: 特征维度（128/256/512）
+- `--freeze_layers`: 冻结层配置（如 "stem,layer1"）
+- `--margin`: Triplet Loss 边界值（0.1-0.5）
 
-## 自动裁剪（可选）
-
-如果数据中包含大画面或场景需要先裁剪到考生区域，可使用项目自带的自动裁剪工具：
-
-- `tool/auto_crop.py`：基于 ultralytics YOLO 的 `AutoCropper`。关键行为：
-    - 单帧检测失败时，会使用上一帧的检测框作为回退。
-    - 若连续 `max_miss_frames`（默认 30）帧未检测到目标，缓存会被清空，后续返回 `None`。
-    - `detect_video_crop(video_path)` 会在若干采样帧上检测并返回所有有效检测框的并集，或在无有效检测时返回 `default_crop_rect`（或 None，取决于配置）。
-
-- `scripts/batch_crop.py`：遍历输入目录并将裁剪后的帧保存为 JPEG；当 `detect_video_crop` 返回 `None` 时脚本会跳过该视频。
-
-示例命令：
-
+### 2. 模型评估
 ```bash
-python scripts/batch_crop.py --input_dir data/train --output_dir data_cropped/train --weights weights/yolov11n.pt
+python test.py --model_path checkpoints/model/best_model.pth \
+               --data_root data
 ```
 
-注意：如果本地没有 YOLO 权重，`ultralytics` 可能尝试自动下载模型（需要网络）；也可自行放置权重到 `weights/`。
+**输出结果**：
+- k-NN 分类准确率和详细报告
+- t-SNE 降维可视化图（`val_tsne_plot.png`）
+- 特征向量文件（`val_embeddings.pt`）
 
-## 代码要点与可配置项
+### 3. 自动裁剪功能
 
-- `tool/dataset.py` (`VideoDataset`)：
-    - 使用 `AutoCropper` 获取每个视频的裁剪框（支持从 `crop_boxes.json` 加载缓存以加速）。
-    - 采样 `num_frames` 帧并返回形状为 `(C, T, H, W)` 的张量供模型使用。
-    - 训练模式下会进行简单数据增强（翻转、亮度/对比度/饱和度扰动）。
+批量裁剪视频：
+```bash
+python tool/view_cropping.py --input_dir data/train \
+                             --output_dir data_cropped/train \
+                             --weights weights/yolov11n.pt
+```
 
-- `train.py`：
-    - 包含 `PKBatchSampler` 实现 P-K 采样。
-    - 使用 `TripletLossWrapper`（`tool/loss.py`）计算损失并使用 Adam 优化器训练。
+**裁剪特性**：
+- 基于 YOLO 检测人物区域
+- 支持裁剪框缓存（`boxes_json/crop_boxes.json`）
+- 连续帧检测失败时使用上一帧结果
+- 可配置默认裁剪区域和检测阈值
 
-- `model/ResNetModel.py` 与 `model/model.py`：
-    - 两种 R(2+1)D 实现：自定义 VideoResNet（`ResNetModel.py`）和 torchvision 接口（`model.py`）。
-    - 通过 `R2Dmodel(embedding_dim, pretrained, freeze_layers)` 获取用于度量学习的 embedding 网络。
+## �️ 技术架构
 
+### 模型设计
+- **主干网络**：R(2+1)D_18（Kinetics-400 预训练）
+- **特征投影**：全连接层投影到指定维度
+- **层级冻结**：支持细粒度层冻结策略
 
+### 训练策略
+- **损失函数**：TripletMarginLoss + TripletMarginMiner
+- **采样策略**：PKBatchSampler（P类-K样本）
+- **优化器**：Adam + 学习率调度
+- **数据增强**：随机翻转、亮度/对比度调整
 
+### 评估方法
+- **特征提取**：批量提取验证集特征
+- **性能评估**：k-NN 分类器（k=5）
+- **可视化分析**：t-SNE 降维聚类分析
+
+## � 测试框架
+
+运行完整测试套件：
+```bash
+pytest -v
+```
+
+**测试覆盖**：
+- 数据集加载和预处理
+- 模型前向传播
+- 损失函数计算
+- P-K 批次采样器
+- YOLO 自动裁剪功能
+
+**测试标记**：
+- `pytest -m "not slow"`: 排除耗时测试
+- `pytest -m "gpu"`: 仅运行 GPU 测试
+
+## 📈 性能优化
+
+### 数据处理优化
+- 预计算裁剪框缓存
+- 多进程数据加载
+- 智能帧采样策略
+
+### 训练优化
+- 梯度累积支持
+- 混合精度训练兼容
+- 动态学习率调整
+
+## 🤝 开发指南
+
+### 代码规范
+- 使用 flake8 进行代码检查（配置：`.flake8`）
+- 行长度限制：120 字符
+- Git 预提交钩子：`.pre-commit-config.yaml`
+
+### 贡献流程
+1. Fork 项目并创建功能分支
+2. 添加相应的测试用例
+3. 确保所有测试通过：`pytest`
+4. 提交 Pull Request
+
+## 📚 扩展功能
+
+- **多模型支持**：可切换不同的视频网络架构
+- **在线推理**：支持实时视频流处理
+- **数据增强**：可配置的增强策略
+- **分布式训练**：多GPU训练支持
