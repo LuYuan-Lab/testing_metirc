@@ -1,113 +1,184 @@
-# 考场行为识别与监控AI算法
+# 考场行为识别与监控 AI 系统
 
-本项目是一个基于深度学习的视频理解项目，旨在通过度量学习（Metric Learning）训练一个能够区分不同考场行为（如举手、玩手机、站立等）的AI模型。模型利用3D卷积神经网络（R(2+1)D）从视频片段中提取高质量的特征向量（Embeddings），使得相似行为的视频在特征空间中距离更近，不同行为的视频距离更远。
+基于深度学习和度量学习的视频理解系统，用于识别考场中的异常行为。采用 R(2+1)D 视频网络提取时空特征，通过 Triplet Loss 和 P-K 采样策略训练判别性特征表示。
 
-## ✨ 项目特点
+## 🎯 核心特性
 
-- **先进的模型结构**: 采用 `R(2+1)D` 视频识别模型，能有效捕捉时空特征。
-- **度量学习**: 使用三元组损失（Triplet Loss）和 `P-K` 采样策略进行端到端的度量学习，专注于学习具有区分性的特征。
-- **高效的数据处理**: 自定义的 `VideoDataset` 类，支持视频帧采样、特定区域裁剪、数据增强（随机偏移、翻转、颜色扰动）等。
-- **全面的模型评估**: 提供 `k-NN` 分类准确率评估和 `t-SNE` 可视化，直观地衡量模型学习到的特征质量。
-- **模块化设计**: 代码结构清晰，分为数据处理、模型定义、损失函数、训练和测试脚本，易于理解和扩展。
+- **时空特征提取**：R(2+1)D 视频识别模型，有效捕捉时空特征
+- **度量学习训练**：Triplet Loss + Semi-hard/Hard 挖掘策略
+- **智能批次采样**：P-K 采样确保有效的三元组构建
+- **YOLO 自动裁剪**：基于目标检测的视频区域智能裁剪
+- **全面评估体系**：k-NN 分类 + t-SNE 可视化 + 完整测试套件
 
-## 📂 项目结构
+## 📁 项目结构
 
 ```
 .
-├── data/                     # 数据集根目录
-│   ├── train/                # 训练集
-│   │   ├── 举手/
-│   │   ├── 手机/
-│   │   └── ...
-│   └── val/                  # 验证集
-│       ├── 举手/
-│       └── ...
-├── checkpoints/              # 模型权重和输出文件
-│   ├── best_model.pth        # 训练好的最佳模型
-│   └── val_tsne_plot.png     # 验证集t-SNE可视化结果
-├── dataset.py                # 数据集定义和预处理
-├── loss.py                   # 三元组损失函数封装
-├── model.py                  # R(2+1)D模型定义
-├── train.py                  # 模型训练脚本
-├── test.py                   # 模型评估脚本
-└── README.md                 # 本文档
+├── model/                    # 模型实现
+│   ├── ResNetModel.py       # 自定义 R(2+1)D 视频网络
+│   ├── model.py            # torchvision 接口封装
+│   └── CustomModel2.py     # 实验性模型
+├── tool/                    # 核心工具集
+│   ├── dataset.py         # 视频数据集与预处理
+│   ├── loss.py           # Triplet Loss 封装
+│   ├── auto_crop.py      # YOLO 自动裁剪
+│   ├── view_cropping.py  # 裁剪可视化工具
+│   └── per_crop_videos.py # 视频裁剪脚本
+├── tests/                  # 测试套件
+│   ├── test_dataset.py   # 数据集测试
+│   ├── test_model.py     # 模型测试
+│   ├── test_loss.py      # 损失函数测试
+│   └── test_sampler.py   # 采样器测试
+├── boxes_json/            # 裁剪框缓存
+├── checkpoints/          # 模型保存目录
+├── weights/             # 预训练权重
+├── train.py            # 训练入口
+└── test.py            # 评估入口
 ```
 
-## ⚙️ 环境搭建
+## 🚀 环境配置
 
-1.  **克隆项目** (如果需要)
-    ```bash
-    git clone <your-repo-url>
-    cd testing_metirc
-    ```
+### 1. 创建环境
+```bash
+conda create -n metric python=3.11
+conda activate metric
+```
 
-2.  **创建虚拟环境** (推荐)
-    ```bash
-    python -m venv venv
-    .\venv\Scripts\activate
-    ```
+### 2. 安装依赖
+```bash
+pip install -r requirements.txt
+```
 
-3.  **安装依赖**
-    项目依赖以下库，您可以使用 `pip` 进行安装：
-    ```bash
-    pip install torch torchvision
-    pip install opencv-python numpy scikit-learn matplotlib tqdm pytorch-metric-learning Pillow
-    ```
-    *建议在一个 `requirements.txt` 文件中管理这些依赖。*
+### 3. 核心依赖说明
+- **深度学习框架**：torch==2.7.1+cu128, torchvision==0.22.1+cu128
+- **度量学习**：pytorch-metric-learning==2.9.0
+- **目标检测**：ultralytics==8.3.222
+- **数据处理**：opencv-python, numpy, scikit-learn
+- **测试框架**：pytest（完整测试套件）
 
-## 准备数据集
+## 📊 数据组织
 
-将您的视频数据集按以下结构组织在 `data` 目录下：
+```
+data/
+├── train/
+│   ├── 举手/          # 视频文件 (.mp4, .avi 等)
+│   ├── 玩手机/
+│   ├── 正常/
+│   └── [其他行为]/
+└── val/
+    └── [对应类别]/
+```
 
--   每个子目录代表一个行为类别（如 `举手`, `正常`）。
--   训练视频放入 `data/train/` 下对应的类别文件夹。
--   验证视频放入 `data/val/` 下对应的类别文件夹。
-
-视频格式支持 `.mp4`, `.avi`, `.mov` 等 OpenCV 可读取的格式。
-
-## 🚀 如何使用
+## 🔧 使用指南
 
 ### 1. 训练模型
-
-通过运行 `train.py` 脚本来开始训练。您可以自定义训练参数。
-
-**基本命令:**
 ```bash
-python train.py
+python train.py --data_root data \
+                --output_dir checkpoints/model \
+                --p_classes 5 \
+                --k_samples 4 \
+                --embedding_dim 128 \
+                --epochs 30 \
+                --margin 0.2
 ```
 
-**常用参数:**
-- `--data_root`: 数据集根目录 (默认: `data`)。
-- `--output_dir`: 模型检查点保存目录 (默认: `checkpoints`)。
-- `--epochs`: 训练轮数 (默认: `30`)。
-- `--lr`: 学习率 (默认: `1e-4`)。
-- `--p_classes`: 每个批次中包含的类别数 (P) (默认: `5`)。
-- `--k_samples`: 每个类别在批次中的样本数 (K) (默认: `4`)。
-- `--embedding_dim`: 输出特征向量的维度 (默认: `128`)。
-- `--num_frames`: 从每个视频中采样的帧数 (默认: `30`)。
-- `--freeze_layers`: 需要冻结的模型层列表 (例如 `['stem', 'layer1']`)。
+**核心参数**：
+- `--p_classes`: P-K 采样中的类别数（建议 3-5）
+- `--k_samples`: 每类样本数（建议 4-8）
+- `--embedding_dim`: 特征维度（128/256/512）
+- `--freeze_layers`: 冻结层配置（如 "stem,layer1"）
+- `--margin`: Triplet Loss 边界值（0.1-0.5）
 
-**示例 (使用自定义参数):**
+### 2. 模型评估
 ```bash
-python train.py --epochs 50 --lr 1e-5 --p_classes 5 --k_samples 8
+python test.py --model_path checkpoints/model/best_model.pth \
+               --data_root data
 ```
 
-训练过程中，验证损失最低的模型将被保存为 `checkpoints/best_model.pth`。
+**输出结果**：
+- k-NN 分类准确率和详细报告
+- t-SNE 降维可视化图（`val_tsne_plot.png`）
+- 特征向量文件（`val_embeddings.pt`）
 
-### 2. 评估模型
+### 3. 自动裁剪功能
 
-训练完成后，使用 `test.py` 脚本来评估模型的性能。该脚本会执行以下操作：
-1.  从训练集和验证集中提取所有视频的特征向量。
-2.  使用 `k-NN` 分类器在验证集上进行分类，并输出准确率和分类报告。
-3.  对验证集的特征向量进行 `t-SNE` 降维，并生成可视化图像 `val_tsne_plot.png`，保存在模型目录中。
-
-**运行命令:**
+批量裁剪视频：
 ```bash
-python test.py --model_path checkpoints/best_model.pth
+python tool/view_cropping.py --input_dir data/train \
+                             --output_dir data_cropped/train \
+                             --weights weights/yolov11n.pt
 ```
 
-**参数说明:**
-- `--model_path`: 指向训练好的模型权重文件。
-- `--batch_size`: 特征提取时的批处理大小 (可以设置得比训练时大) (默认: `32`)。
+**裁剪特性**：
+- 基于 YOLO 检测人物区域
+- 支持裁剪框缓存（`boxes_json/crop_boxes.json`）
+- 连续帧检测失败时使用上一帧结果
+- 可配置默认裁剪区域和检测阈值
 
-评估结果将直接打印在控制台，`t-SNE` 图像将帮助您直观地判断不同类别的视频特征是否在空间上被有效分离开。
+## �️ 技术架构
+
+### 模型设计
+- **主干网络**：R(2+1)D_18（Kinetics-400 预训练）
+- **特征投影**：全连接层投影到指定维度
+- **层级冻结**：支持细粒度层冻结策略
+
+### 训练策略
+- **损失函数**：TripletMarginLoss + TripletMarginMiner
+- **采样策略**：PKBatchSampler（P类-K样本）
+- **优化器**：Adam + 学习率调度
+- **数据增强**：随机翻转、亮度/对比度调整
+
+### 评估方法
+- **特征提取**：批量提取验证集特征
+- **性能评估**：k-NN 分类器（k=5）
+- **可视化分析**：t-SNE 降维聚类分析
+
+## � 测试框架
+
+运行完整测试套件：
+```bash
+pytest -v
+```
+
+**测试覆盖**：
+- 数据集加载和预处理
+- 模型前向传播
+- 损失函数计算
+- P-K 批次采样器
+- YOLO 自动裁剪功能
+
+**测试标记**：
+- `pytest -m "not slow"`: 排除耗时测试
+- `pytest -m "gpu"`: 仅运行 GPU 测试
+
+## 📈 性能优化
+
+### 数据处理优化
+- 预计算裁剪框缓存
+- 多进程数据加载
+- 智能帧采样策略
+
+### 训练优化
+- 梯度累积支持
+- 混合精度训练兼容
+- 动态学习率调整
+
+## 🤝 开发指南
+
+### 代码规范
+- 使用 flake8 进行代码检查（配置：`.flake8`）
+- 行长度限制：120 字符
+- Git 预提交钩子：`.pre-commit-config.yaml`
+
+### 贡献流程
+1. Fork 项目并创建功能分支
+2. 添加相应的测试用例
+3. 确保所有测试通过：`pytest`
+4. 提交 Pull Request
+
+## 📚 扩展功能
+
+- **多模型支持**：可切换不同的视频网络架构
+- **在线推理**：支持实时视频流处理
+- **数据增强**：可配置的增强策略
+- **分布式训练**：多GPU训练支持
