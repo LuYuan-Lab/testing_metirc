@@ -1,3 +1,10 @@
+"""
+视频裁剪处理器
+整合了自动裁剪检测和批量视频处理功能
+"""
+
+import json
+import os
 from typing import Optional, Tuple
 
 import cv2
@@ -142,3 +149,121 @@ class AutoCropper:
         y2 = max([r[3] for r in crop_rects])
 
         return x1, y1, x2, y2
+
+
+class VideoCropProcessor:
+    """
+    批量视频裁剪处理器
+    """
+    
+    def __init__(self, 
+                 model_path: str = "weights/yolov11n.pt",
+                 conf_thres: float = 0.5,
+                 target_class: str = "person",
+                 margin_ratio: float = 0.1):
+        """
+        初始化视频裁剪处理器
+        
+        Args:
+            model_path: YOLO 模型路径
+            conf_thres: 检测置信度阈值
+            target_class: 检测目标类别
+            margin_ratio: 裁剪框扩展比例
+        """
+        self.cropper = AutoCropper(
+            model_path=model_path,
+            conf_thres=conf_thres,
+            target_class=target_class,
+            margin_ratio=margin_ratio,
+        )
+    
+    def generate_crop_boxes(self, data_root: str, output_json: str):
+        """
+        遍历整个数据集，为每个视频检测人框并保存到 JSON。
+        
+        Args:
+            data_root: 数据集根目录
+            output_json: 输出JSON文件路径
+        """
+        crop_dict = {}
+
+        # 遍历 train/val 等所有子文件夹
+        for root, _, files in os.walk(data_root):
+            for f in files:
+                if f.lower().endswith((".mp4", ".avi", ".mov", ".mkv")):
+                    video_path = os.path.join(root, f)
+                    try:
+                        crop_rect = self.cropper.detect_video_crop(video_path)
+                        crop_dict[video_path] = crop_rect
+                        print(f"✅ {video_path} -> {crop_rect}")
+                    except Exception as e:
+                        print(f"⚠️ Failed to process {video_path}: {e}")
+
+        # 保存到 JSON 文件
+        output_dir = os.path.dirname(output_json)
+        if output_dir:  # 只有当目录路径不为空时才创建目录
+            os.makedirs(output_dir, exist_ok=True)
+        with open(output_json, "w") as fp:
+            json.dump(crop_dict, fp, indent=4)
+        print(f"\n🎯 Saved {len(crop_dict)} crop boxes to {output_json}")
+        return crop_dict
+    
+    def process_single_video(self, video_path: str) -> Tuple[int, int, int, int]:
+        """
+        处理单个视频，返回裁剪框
+        
+        Args:
+            video_path: 视频文件路径
+            
+        Returns:
+            裁剪框坐标 (x1, y1, x2, y2)
+        """
+        return self.cropper.detect_video_crop(video_path)
+    
+    def load_crop_boxes(self, json_path: str) -> dict:
+        """
+        从JSON文件加载裁剪框数据
+        
+        Args:
+            json_path: JSON文件路径
+            
+        Returns:
+            包含视频路径和裁剪框的字典
+        """
+        try:
+            with open(json_path, "r") as fp:
+                crop_dict = json.load(fp)
+            print(f"✅ 从 {json_path} 加载了 {len(crop_dict)} 个裁剪框")
+            return crop_dict
+        except FileNotFoundError:
+            print(f"⚠️ 文件 {json_path} 不存在")
+            return {}
+        except json.JSONDecodeError:
+            print(f"⚠️ JSON 文件 {json_path} 格式错误")
+            return {}
+
+
+def main():
+    """
+    主函数 - 批量处理数据集中的所有视频
+    """
+    # 配置参数
+    data_root = "data"  # 你的数据根目录
+    output_json = "boxes_json/crop_boxes.json"
+    
+    # 创建处理器
+    processor = VideoCropProcessor(
+        model_path="weights/yolov11n.pt",
+        conf_thres=0.5,
+        target_class="person",
+        margin_ratio=0.1
+    )
+    
+    # 生成裁剪框
+    crop_boxes = processor.generate_crop_boxes(data_root, output_json)
+    
+    print(f"\n📊 处理完成！共处理 {len(crop_boxes)} 个视频文件")
+
+
+if __name__ == "__main__":
+    main()

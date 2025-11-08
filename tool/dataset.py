@@ -11,7 +11,7 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 from torchvision.transforms import functional as F
 
-from tool.auto_crop import AutoCropper
+from tool.video_crop_processor import AutoCropper, VideoCropProcessor
 
 
 class VideoDataset(Dataset):
@@ -42,6 +42,24 @@ class VideoDataset(Dataset):
         self.random_offset = random_offset
         self.resize_shape = resize_shape
 
+        # ✅ 检查并生成/加载裁剪框缓存
+        if os.path.exists(crop_json):
+            with open(crop_json, "r") as f:
+                self.crop_cache = json.load(f)
+            print(f"✅ Loaded {len(self.crop_cache)} cached crop boxes from {crop_json}")
+        else:
+            print(f"⚠️ {crop_json} not found, generating crop boxes for entire dataset...")
+            # 创建 VideoCropProcessor 来生成整个数据集的裁剪框
+            processor = VideoCropProcessor(
+                model_path="weights/yolov11n.pt",
+                conf_thres=0.5,
+                target_class="person",
+                margin_ratio=0.1,
+            )
+            # 生成整个数据集的裁剪框
+            self.crop_cache = processor.generate_crop_boxes(data_root, crop_json)
+            print(f"✅ Generated and saved {len(self.crop_cache)} crop boxes to {crop_json}")
+
         # ✅ 加载 YOLO 备用（仅在 JSON 缺失某视频时调用）
         self.auto_cropper = AutoCropper(
             model_path="weights/yolov11n.pt",
@@ -49,15 +67,6 @@ class VideoDataset(Dataset):
             target_class="person",
             margin_ratio=0.1,
         )
-
-        # ✅ 加载裁剪框缓存
-        if os.path.exists(crop_json):
-            with open(crop_json, "r") as f:
-                self.crop_cache = json.load(f)
-            print(f"✅ Loaded {len(self.crop_cache)} cached crop boxes from {crop_json}")
-        else:
-            print("⚠️ crop_boxes.json not found, YOLO will run on the fly.")
-            self.crop_cache = {}
 
         self.video_files = []
         self.class_to_idx = {}
