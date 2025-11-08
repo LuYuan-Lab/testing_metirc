@@ -45,4 +45,4 @@ Thumbs.db
 visualization/output_visualization/
 visualization/output_visualization/detection/
 visualization/output_visualization/tracking/
-videos/videos/111.mp4
+videos/*.mp4
