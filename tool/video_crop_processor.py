@@ -14,7 +14,7 @@ from ultralytics import YOLO
 
 class AutoCropper:
     """
-    使用 YOLO 检测目标区域并返回裁剪框，只保留指定类别（如 'person'）。
+    使用 YOLO 检测目标区域并返回裁剪框，支持多种调用模式
     """
 
     def __init__(
@@ -39,7 +39,7 @@ class AutoCropper:
             self.model = YOLO(model_path)
         except FileNotFoundError:
             print(f"⚠️ 模型 {model_path} 未找到，尝试使用 YOLOv8n 替代")
-            self.model = YOLO("yolov8n.pt")
+            self.model = YOLO("yolov11n.pt")
 
         self.model.fuse()
         self.model.conf = conf_thres
@@ -149,6 +149,185 @@ class AutoCropper:
         y2 = max([r[3] for r in crop_rects])
 
         return x1, y1, x2, y2
+
+    def detect_with_details(
+        self,
+        frame: np.ndarray,
+        target_class: str = None,
+        confidence_threshold: float = None,
+        max_detections: int = None,
+        min_box_area: float = 100,
+        max_box_area: float = None,
+        crop_margin: float = 0,
+        return_format: str = "detailed",
+        filter_overlapping: bool = True,
+        overlap_threshold: float = 0.5,
+        sort_by: str = "confidence",
+        enable_nms: bool = True,
+        nms_threshold: float = 0.4
+    ):
+        """
+        详细的检测接口，返回丰富的检测信息
+        
+        Args:
+            frame: 输入帧
+            target_class: 目标类别名称，None则检测所有
+            confidence_threshold: 置信度阈值，None则使用模型默认
+            max_detections: 最大检测数量
+            min_box_area: 最小检测框面积
+            max_box_area: 最大检测框面积
+            crop_margin: 裁剪边距像素
+            return_format: 返回格式 ["simple", "detailed", "full"]
+            filter_overlapping: 是否过滤重叠框
+            overlap_threshold: 重叠阈值
+            sort_by: 排序方式 ["confidence", "area", "position"]
+            enable_nms: 是否启用NMS
+            nms_threshold: NMS阈值
+            
+        Returns:
+            根据return_format返回不同格式的检测结果
+        """
+        # 设置置信度阈值
+        if confidence_threshold is not None:
+            original_conf = self.model.conf
+            self.model.conf = confidence_threshold
+        
+        try:
+            # 执行检测
+            results = self.model(frame, verbose=False)
+            boxes = results[0].boxes
+            
+            if boxes is None or len(boxes) == 0:
+                return []
+            
+            # 获取检测数据
+            cls_ids = boxes.cls.cpu().numpy().astype(int)
+            xyxy_all = boxes.xyxy.cpu().numpy()
+            conf_all = boxes.conf.cpu().numpy()
+            
+            detections = []
+            
+            for i, (box, cls_id, conf) in enumerate(zip(xyxy_all, cls_ids, conf_all)):
+                class_name = self.model.names[cls_id]
+                
+                # 置信度过滤 - 关键修复！
+                if confidence_threshold is not None and conf < confidence_threshold:
+                    continue
+                
+                # 类别过滤
+                if target_class and class_name != target_class:
+                    continue
+                
+                x1, y1, x2, y2 = map(int, box)
+                
+                # 面积过滤
+                area = (x2 - x1) * (y2 - y1)
+                if area < min_box_area:
+                    continue
+                if max_box_area and area > max_box_area:
+                    continue
+                
+                # 添加裁剪边距
+                if crop_margin > 0:
+                    x1 = max(0, x1 - crop_margin)
+                    y1 = max(0, y1 - crop_margin)
+                    x2 = min(frame.shape[1], x2 + crop_margin)
+                    y2 = min(frame.shape[0], y2 + crop_margin)
+                
+                # 构建检测结果
+                detection = {
+                    'bbox': (x1, y1, x2, y2),
+                    'confidence': float(conf),
+                    'class': class_name,
+                    'class_id': int(cls_id),
+                    'area': area,
+                    'center': ((x1 + x2) // 2, (y1 + y2) // 2)
+                }
+                
+                if return_format == "full":
+                    detection.update({
+                        'width': x2 - x1,
+                        'height': y2 - y1,
+                        'aspect_ratio': (x2 - x1) / (y2 - y1),
+                        'detection_id': i
+                    })
+                
+                detections.append(detection)
+            
+            # 排序
+            if sort_by == "confidence":
+                detections.sort(key=lambda x: x['confidence'], reverse=True)
+            elif sort_by == "area":
+                detections.sort(key=lambda x: x['area'], reverse=True)
+            elif sort_by == "position":
+                detections.sort(key=lambda x: (x['center'][1], x['center'][0]))
+            
+            # 限制数量
+            if max_detections:
+                detections = detections[:max_detections]
+            
+            # 格式化返回结果
+            if return_format == "simple":
+                return [(d['bbox'], d['confidence'], d['class']) for d in detections]
+            elif return_format == "detailed":
+                return detections
+            else:  # full
+                return detections
+                
+        finally:
+            # 恢复原始置信度
+            if confidence_threshold is not None:
+                self.model.conf = original_conf
+    
+    def detect_and_crop(
+        self,
+        frame: np.ndarray,
+        target_class: str = "person",
+        confidence_threshold: float = None,
+        max_detections: int = None,
+        min_box_area: float = 100,
+        crop_margin: float = 0,
+        return_crops: bool = False
+    ):
+        """
+        检测并返回裁剪坐标，为数据集调用优化
+        
+        Args:
+            frame: 输入帧
+            target_class: 目标类别
+            confidence_threshold: 置信度阈值
+            max_detections: 最大检测数量
+            min_box_area: 最小检测框面积
+            crop_margin: 裁剪边距
+            return_crops: 是否返回裁剪后的图像
+            
+        Returns:
+            如果return_crops=False: 返回坐标列表 [(x1,y1,x2,y2), ...]
+            如果return_crops=True: 返回 (坐标列表, 裁剪图像列表)
+        """
+        detections = self.detect_with_details(
+            frame=frame,
+            target_class=target_class,
+            confidence_threshold=confidence_threshold,
+            max_detections=max_detections,
+            min_box_area=min_box_area,
+            crop_margin=crop_margin,
+            return_format="simple"
+        )
+        
+        # 提取坐标
+        crop_boxes = [det[0] for det in detections]
+        
+        if not return_crops:
+            return crop_boxes
+        
+        # 生成裁剪图像
+        crops = []
+        for x1, y1, x2, y2 in crop_boxes:
+            crop = frame[y1:y2, x1:x2]
+            crops.append(crop)
+        
+        return crop_boxes, crops
 
 
 class VideoCropProcessor:

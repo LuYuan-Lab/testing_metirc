@@ -40,3 +40,8 @@ temp/
 # 操作系统文件
 .DS_Store
 Thumbs.db
+
+# 可视化输出（不要提交完整处理结果）
+visualization/output_visualization/
+visualization/output_visualization/detection/
+visualization/output_visualization/tracking/
