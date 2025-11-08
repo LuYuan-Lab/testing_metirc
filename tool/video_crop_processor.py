@@ -164,11 +164,11 @@ class AutoCropper:
         overlap_threshold: float = 0.5,
         sort_by: str = "confidence",
         enable_nms: bool = True,
-        nms_threshold: float = 0.4
+        nms_threshold: float = 0.4,
     ):
         """
         详细的检测接口，返回丰富的检测信息
-        
+
         Args:
             frame: 输入帧
             target_class: 目标类别名称，None则检测所有
@@ -183,7 +183,7 @@ class AutoCropper:
             sort_by: 排序方式 ["confidence", "area", "position"]
             enable_nms: 是否启用NMS
             nms_threshold: NMS阈值
-            
+
         Returns:
             根据return_format返回不同格式的检测结果
         """
@@ -191,94 +191,91 @@ class AutoCropper:
         if confidence_threshold is not None:
             original_conf = self.model.conf
             self.model.conf = confidence_threshold
-        
+
         try:
             # 执行检测
             results = self.model(frame, verbose=False)
             boxes = results[0].boxes
-            
+
             if boxes is None or len(boxes) == 0:
                 return []
-            
+
             # 获取检测数据
             cls_ids = boxes.cls.cpu().numpy().astype(int)
             xyxy_all = boxes.xyxy.cpu().numpy()
             conf_all = boxes.conf.cpu().numpy()
-            
+
             detections = []
-            
+
             for i, (box, cls_id, conf) in enumerate(zip(xyxy_all, cls_ids, conf_all)):
                 class_name = self.model.names[cls_id]
-                
+
                 # 置信度过滤 - 关键修复！
                 if confidence_threshold is not None and conf < confidence_threshold:
                     continue
-                
+
                 # 类别过滤
                 if target_class and class_name != target_class:
                     continue
-                
+
                 x1, y1, x2, y2 = map(int, box)
-                
+
                 # 面积过滤
                 area = (x2 - x1) * (y2 - y1)
                 if area < min_box_area:
                     continue
                 if max_box_area and area > max_box_area:
                     continue
-                
+
                 # 添加裁剪边距
                 if crop_margin > 0:
                     x1 = max(0, x1 - crop_margin)
                     y1 = max(0, y1 - crop_margin)
                     x2 = min(frame.shape[1], x2 + crop_margin)
                     y2 = min(frame.shape[0], y2 + crop_margin)
-                
+
                 # 构建检测结果
                 detection = {
-                    'bbox': (x1, y1, x2, y2),
-                    'confidence': float(conf),
-                    'class': class_name,
-                    'class_id': int(cls_id),
-                    'area': area,
-                    'center': ((x1 + x2) // 2, (y1 + y2) // 2)
+                    "bbox": (x1, y1, x2, y2),
+                    "confidence": float(conf),
+                    "class": class_name,
+                    "class_id": int(cls_id),
+                    "area": area,
+                    "center": ((x1 + x2) // 2, (y1 + y2) // 2),
                 }
-                
+
                 if return_format == "full":
-                    detection.update({
-                        'width': x2 - x1,
-                        'height': y2 - y1,
-                        'aspect_ratio': (x2 - x1) / (y2 - y1),
-                        'detection_id': i
-                    })
-                
+                    detection.update(
+                        {"width": x2 - x1, "height": y2 - y1, "aspect_ratio": (x2 - x1) / (y2 - y1), "detection_id": i}
+                    )
+
                 detections.append(detection)
-            
+
             # 排序
             if sort_by == "confidence":
-                detections.sort(key=lambda x: x['confidence'], reverse=True)
+                detections.sort(key=lambda x: x["confidence"], reverse=True)
             elif sort_by == "area":
-                detections.sort(key=lambda x: x['area'], reverse=True)
+                detections.sort(key=lambda x: x["area"], reverse=True)
             elif sort_by == "position":
-                detections.sort(key=lambda x: (x['center'][1], x['center'][0]))
-            
+                detections.sort(key=lambda x: (x["center"][1], x["center"][0]))
+
             # 限制数量
             if max_detections:
                 detections = detections[:max_detections]
-            
+
             # 格式化返回结果
             if return_format == "simple":
-                return [(d['bbox'], d['confidence'], d['class']) for d in detections]
+                return [(d["bbox"], d["confidence"], d["class"]) for d in detections]
             elif return_format == "detailed":
                 return detections
             else:  # full
                 return detections
-                
+
         finally:
             # 恢复原始置信度
             if confidence_threshold is not None:
                 self.model.conf = original_conf
-    
+
     def detect_and_crop(
         self,
         frame: np.ndarray,
@@ -287,11 +284,11 @@ class AutoCropper:
         max_detections: int = None,
         min_box_area: float = 100,
         crop_margin: float = 0,
-        return_crops: bool = False
+        return_crops: bool = False,
     ):
         """
         检测并返回裁剪坐标，为数据集调用优化
-        
+
         Args:
             frame: 输入帧
             target_class: 目标类别
@@ -300,7 +297,7 @@ class AutoCropper:
             min_box_area: 最小检测框面积
             crop_margin: 裁剪边距
             return_crops: 是否返回裁剪后的图像
-            
+
         Returns:
             如果return_crops=False: 返回坐标列表 [(x1,y1,x2,y2), ...]
             如果return_crops=True: 返回 (坐标列表, 裁剪图像列表)
@@ -312,21 +309,21 @@ class AutoCropper:
             max_detections=max_detections,
             min_box_area=min_box_area,
             crop_margin=crop_margin,
-            return_format="simple"
+            return_format="simple",
         )
-        
+
         # 提取坐标
         crop_boxes = [det[0] for det in detections]
-        
+
         if not return_crops:
             return crop_boxes
-        
+
         # 生成裁剪图像
         crops = []
         for x1, y1, x2, y2 in crop_boxes:
             crop = frame[y1:y2, x1:x2]
             crops.append(crop)
-        
+
         return crop_boxes, crops
 
 
@@ -334,15 +331,17 @@ class VideoCropProcessor:
     """
     批量视频裁剪处理器
     """
-    
-    def __init__(self, 
-                 model_path: str = "weights/yolov11n.pt",
-                 conf_thres: float = 0.5,
-                 target_class: str = "person",
-                 margin_ratio: float = 0.1):
+
+    def __init__(
+        self,
+        model_path: str = "weights/yolov11n.pt",
+        conf_thres: float = 0.5,
+        target_class: str = "person",
+        margin_ratio: float = 0.1,
+    ):
         """
         初始化视频裁剪处理器
-        
+
         Args:
             model_path: YOLO 模型路径
             conf_thres: 检测置信度阈值
@@ -355,11 +354,11 @@ class VideoCropProcessor:
             target_class=target_class,
             margin_ratio=margin_ratio,
         )
-    
+
     def generate_crop_boxes(self, data_root: str, output_json: str):
         """
         遍历整个数据集，为每个视频检测人框并保存到 JSON。
-        
+
         Args:
             data_root: 数据集根目录
             output_json: 输出JSON文件路径
@@ -386,26 +385,26 @@ class VideoCropProcessor:
             json.dump(crop_dict, fp, indent=4)
         print(f"\n🎯 Saved {len(crop_dict)} crop boxes to {output_json}")
         return crop_dict
-    
+
     def process_single_video(self, video_path: str) -> Tuple[int, int, int, int]:
         """
         处理单个视频，返回裁剪框
-        
+
         Args:
             video_path: 视频文件路径
-            
+
         Returns:
             裁剪框坐标 (x1, y1, x2, y2)
         """
         return self.cropper.detect_video_crop(video_path)
-    
+
     def load_crop_boxes(self, json_path: str) -> dict:
         """
         从JSON文件加载裁剪框数据
-        
+
         Args:
             json_path: JSON文件路径
-            
+
         Returns:
             包含视频路径和裁剪框的字典
         """
@@ -429,18 +428,15 @@ def main():
     # 配置参数
     data_root = "data"  # 你的数据根目录
     output_json = "boxes_json/crop_boxes.json"
-    
+
     # 创建处理器
     processor = VideoCropProcessor(
-        model_path="weights/yolov11n.pt",
-        conf_thres=0.5,
-        target_class="person",
-        margin_ratio=0.1
+        model_path="weights/yolov11n.pt", conf_thres=0.5, target_class="person", margin_ratio=0.1
     )
-    
+
     # 生成裁剪框
     crop_boxes = processor.generate_crop_boxes(data_root, output_json)
-    
+
     print(f"\n📊 处理完成！共处理 {len(crop_boxes)} 个视频文件")
 
 
