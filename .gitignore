@@ -46,3 +46,5 @@ visualization/output_visualization/
 visualization/output_visualization/detection/
 visualization/output_visualization/tracking/
 videos/*.mp4
+output/
+output_/

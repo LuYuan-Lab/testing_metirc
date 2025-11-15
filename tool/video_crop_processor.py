@@ -36,10 +36,10 @@ class AutoCropper:
             max_missing_frames: 连续多少帧未检测到目标后，判定为真正丢失
         """
         try:
-            self.model = YOLO(model_path)
+            self.model = YOLO(model_path, verbose=False)
         except FileNotFoundError:
             print(f"⚠️ 模型 {model_path} 未找到，尝试使用 YOLOv8n 替代")
-            self.model = YOLO("yolov11n.pt")
+            self.model = YOLO("yolov11n.pt", verbose=False)
 
         self.model.fuse()
         self.model.conf = conf_thres
